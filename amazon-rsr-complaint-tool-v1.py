@@ -1,44 +1,38 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import os
 
-st.set_page_config(page_title="Anonymous Workplace Feedback", page_icon="📝")
-
-st.title("📝 Anonymous Workplace Experience Form")
-
-st.write("""
-This form allows associates to anonymously document experiences about a process assistant.
-No names, logins, or identifying information are collected.
-""")
+st.set_page_config(
+    page_title="Anonymous Workplace Experience Form",
+    page_icon="📝",
+    layout="centered"
+)
 
 LOCATION = "Amazon RSR – 2225 Carlson Drive, North Mankato, MN 56003"
 
+st.title("📝 Anonymous Experience Form")
+
+st.write(
+    "This tool allows associates to anonymously record workplace experiences. "
+    "No identifying information is collected."
+)
+
 st.info(f"Location: {LOCATION}")
 
-file_name = "feedback_data.csv"
+# Initialize session storage
+if "reports" not in st.session_state:
+    st.session_state.reports = []
 
-# Create file if missing
-if not os.path.exists(file_name):
-    df = pd.DataFrame(columns=[
-        "timestamp",
-        "experience",
-        "rating",
-        "additional_comments"
-    ])
-    df.to_csv(file_name, index=False)
-
-
-with st.form("anonymous_form"):
+with st.form("experience_form"):
 
     experience = st.text_area(
-        "Describe your experience:",
+        "Describe your experience",
         height=180,
-        placeholder="Write what happened..."
+        placeholder="Explain what happened..."
     )
 
     rating = st.slider(
-        "Experience rating",
+        "Experience Rating",
         1,
         5,
         3
@@ -48,10 +42,9 @@ with st.form("anonymous_form"):
         "Additional comments (optional)"
     )
 
-    submit = st.form_submit_button("Submit Anonymously")
+    submitted = st.form_submit_button("Submit Anonymously")
 
-
-if submit:
+if submitted:
 
     if experience.strip() == "":
         st.warning("Please describe your experience before submitting.")
@@ -59,19 +52,7 @@ if submit:
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        new_entry = pd.DataFrame({
-            "timestamp": [timestamp],
-            "experience": [experience],
-            "rating": [rating],
-            "additional_comments": [comments]
-        })
-
-        new_entry.to_csv(file_name, mode="a", header=False, index=False)
-
-        st.success("Your anonymous experience has been saved.")
-
-        # Create formatted version for copying
-        formatted_text = f"""
+        report_text = f"""
 ANONYMOUS EXPERIENCE REPORT
 Location: {LOCATION}
 
@@ -86,25 +67,57 @@ Additional Comments:
 {comments}
 """
 
-        st.subheader("📋 Copy Your Saved Report")
+        report_data = {
+            "timestamp": timestamp,
+            "rating": rating,
+            "experience": experience,
+            "comments": comments,
+            "formatted": report_text
+        }
 
-        st.write("You can copy this report and paste it into a text message, email, or document.")
+        st.session_state.reports.append(report_data)
 
-        st.code(formatted_text)
+        st.success("Your anonymous experience has been saved.")
+
+        st.subheader("📋 Copy Your Report")
+
+        st.code(report_text)
 
         st.download_button(
-            "Download Report as TXT",
-            formatted_text,
+            "Download Report",
+            report_text,
             file_name="experience_report.txt"
         )
 
-
 st.divider()
 
-st.subheader("📊 Anonymous Submission Count")
+st.header("📊 Session Reports")
 
-try:
-    data = pd.read_csv(file_name)
-    st.metric("Total Reports Submitted", len(data))
-except:
-    st.write("No submissions yet.")
+report_count = len(st.session_state.reports)
+
+st.metric("Reports Submitted This Session", report_count)
+
+if report_count > 0:
+
+    df = pd.DataFrame(st.session_state.reports)
+
+    st.dataframe(
+        df[["timestamp", "rating"]],
+        use_container_width=True
+    )
+
+    st.subheader("📋 Copy All Reports")
+
+    all_reports_text = "\n\n----------------------------\n\n".join(
+        r["formatted"] for r in st.session_state.reports
+    )
+
+    st.code(all_reports_text)
+
+    st.download_button(
+        "Download All Reports",
+        all_reports_text,
+        file_name="all_experience_reports.txt"
+    )
+else:
+    st.info("No reports submitted yet.")
