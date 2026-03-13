@@ -16,6 +16,12 @@ STAFF_NAMES = [
 
 st.title("📝 Anonymous Experience / Complaint Form")
 
+st.caption(
+    "Use this app to compile your complaint and use the copy functionality "
+    "to copy the report of the complaint and paste it into your text messaging "
+    "service or your email service to send directly to your supervisor."
+)
+
 st.write(
     "This tool allows associates to anonymously document workplace experiences "
     "using the Amazon STAR problem-solving method."
@@ -113,7 +119,7 @@ Additional Comments:
 
         st.session_state.reports.append(report_data)
 
-        st.success("Your anonymous report has been saved.")
+        st.success("Your complaint report has been compiled.")
 
         st.subheader("📋 Copy Your Report")
 
@@ -131,7 +137,7 @@ st.header("📊 Session Reports")
 
 report_count = len(st.session_state.reports)
 
-st.metric("Reports Submitted This Session", report_count)
+st.metric("Reports Compiled This Session", report_count)
 
 if report_count > 0:
 
@@ -156,4 +162,4 @@ if report_count > 0:
         file_name="all_star_reports.txt"
     )
 else:
-    st.info("No reports submitted yet.")
+    st.info("No reports compiled yet.")
