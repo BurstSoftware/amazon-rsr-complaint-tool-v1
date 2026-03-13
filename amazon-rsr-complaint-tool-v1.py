@@ -14,7 +14,7 @@ st.title("📝 Anonymous Experience Form")
 
 st.write(
     "This tool allows associates to anonymously record workplace experiences. "
-    "No identifying information is collected."
+    "No identifying information is collected.  Simply fill out the form and use thr copy function to copy the report to your text messaging service or email service to send the report of thr complaint to tour direct supervisor"
 )
 
 st.info(f"Location: {LOCATION}")
