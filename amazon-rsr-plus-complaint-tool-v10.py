@@ -41,40 +41,58 @@ st.info(f"Location: {LOCATION}")
 # Session State
 if "reports" not in st.session_state:
     st.session_state.reports = []
-if "selected_person" not in st.session_state:
-    st.session_state.selected_person = None
+if "selected_persons" not in st.session_state:
+    st.session_state.selected_persons = []   # Now a list for multi-select
 
-# ====================== NAME SELECTION (Outside Form) ======================
-st.markdown("### 👤 Who is this complaint about?")
+# ====================== MULTI NAME SELECTION ======================
+st.markdown("### 👥 Who is this complaint about? (You can select multiple)")
 
-# Show currently selected person
-if st.session_state.selected_person:
-    st.success(f"**Selected:** {st.session_state.selected_person}")
+# Show currently selected people
+if st.session_state.selected_persons:
+    st.success("**Selected:** " + ", ".join(st.session_state.selected_persons))
 else:
-    st.info("Please select or add a name below")
+    st.info("Select staff members below")
 
-# Clickable Staff Buttons
-st.markdown("**Click a name to select:**")
-cols = st.columns(3)
-for i, name in enumerate(STAFF_NAMES):
-    with cols[i % 3]:
-        if st.button(name, key=f"staff_btn_{i}", use_container_width=True):
-            st.session_state.selected_person = name
-            st.rerun()
+# Multi-select for existing staff
+selected_from_list = st.multiselect(
+    "Select from existing staff:",
+    STAFF_NAMES,
+    default=[name for name in st.session_state.selected_persons if name in STAFF_NAMES],
+    key="multi_staff"
+)
 
-# Add Custom Name
-st.markdown("**Or add a name not in the list:**")
+# Add custom name
+st.markdown("**Add a name not in the list:**")
 col1, col2 = st.columns([4, 1])
 with col1:
     new_name = st.text_input("Enter name", placeholder="e.g. John Smith - Lead", key="new_name_input")
 with col2:
-    if st.button("➕ Add", type="secondary", key="add_name_btn"):
+    if st.button("➕ Add Name", type="secondary", key="add_name_btn"):
         if new_name.strip():
-            st.session_state.selected_person = new_name.strip()
-            st.success(f"Added: {new_name.strip()}")
-            st.rerun()
+            if new_name.strip() not in st.session_state.selected_persons:
+                st.session_state.selected_persons.append(new_name.strip())
+                st.success(f"Added: {new_name.strip()}")
+                st.rerun()
+            else:
+                st.warning("This name is already added.")
         else:
             st.warning("Please enter a name")
+
+# Sync multiselect with session state
+if selected_from_list:
+    for name in selected_from_list:
+        if name not in st.session_state.selected_persons:
+            st.session_state.selected_persons.append(name)
+
+# Remove button for selected people
+if st.session_state.selected_persons:
+    st.markdown("**Currently Selected:**")
+    remove_cols = st.columns(len(st.session_state.selected_persons))
+    for idx, person in enumerate(st.session_state.selected_persons):
+        with remove_cols[idx]:
+            if st.button(f"❌ {person}", key=f"remove_{idx}"):
+                st.session_state.selected_persons.remove(person)
+                st.rerun()
 
 # ====================== FORM SECTION ======================
 with st.form("experience_form"):
@@ -124,8 +142,8 @@ with st.form("experience_form"):
 
 # ====================== SUBMISSION LOGIC ======================
 if submitted:
-    if not st.session_state.selected_person:
-        st.error("⚠️ Please select or add a person before submitting.")
+    if not st.session_state.selected_persons:
+        st.error("⚠️ Please select at least one person before submitting.")
     elif situation.strip() == "":
         st.warning("Please provide at least the **Situation**.")
     elif time_error or parsed_time is None:
@@ -136,6 +154,7 @@ if submitted:
         incident_date_clean = selected_date.strftime("%B %d, %Y")
         submitted_timestamp = datetime.now().strftime("%B %d, %Y at %I:%M %p")
 
+        persons_text = ", ".join(st.session_state.selected_persons)
         selected_tags_text = ", ".join(selected_tags) if selected_tags else "None selected"
 
         report_text = f"""
@@ -145,7 +164,7 @@ Location:
 {LOCATION}
 
 Complaint About:
-{st.session_state.selected_person}
+{persons_text}
 
 Incident Day & Time:
 {incident_timestamp}
@@ -179,7 +198,8 @@ Additional Comments:
             "incident_date": incident_date_clean,
             "incident_time": incident_timestamp,
             "submitted_time": submitted_timestamp,
-            "person": st.session_state.selected_person,
+            "person": persons_text,                    # Store as comma-separated string
+            "persons_list": st.session_state.selected_persons.copy(),  # Store as list too
             "tags": selected_tags,
             "formatted": report_text
         }
@@ -192,11 +212,15 @@ Additional Comments:
 
         st.download_button("Download Report", report_text, file_name="star_report.txt")
 
+        # Optional: Clear selection after submit
+        # st.session_state.selected_persons = []
+
 # ====================== DISPLAY REPORTS ======================
 st.divider()
 st.header(f"📊 {selected_page}")
 
 reports = st.session_state.reports
+
 if selected_page != "All Reports":
     filtered_reports = [r for r in reports if r["day_of_week"] == selected_page]
 else:
@@ -207,7 +231,10 @@ st.metric("Reports Shown", report_count)
 
 if report_count > 0:
     df = pd.DataFrame(filtered_reports)
-    st.dataframe(df[["day_of_week", "incident_date", "incident_time", "person"]], use_container_width=True)
+    st.dataframe(
+        df[["day_of_week", "incident_date", "incident_time", "person"]],
+        use_container_width=True
+    )
 
     st.subheader("📋 All Reports")
     all_reports_text = "\n\n" + "-"*60 + "\n\n".join(r["formatted"] for r in filtered_reports)
